@@ -4,16 +4,31 @@ export default async function handler(req, res) {
   if (!q) return res.send("No query");
 
   try {
-    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`;
-    const r = await fetch(url);
-    const data = await r.json();
+    // Direkt search (en stabil yöntem)
+    const search = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json`
+    );
 
-    // SAFETY FIX (asıl çözüm burada)
-    const title = data.title || q;
+    const sData = await search.json();
+    const first = sData?.query?.search?.[0];
+
+    if (!first) {
+      return res.send(`📖 ${q}: No result found.`);
+    }
+
+    const title = first.title;
+
+    // summary al
+    const summary = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+    );
+
+    const data = await summary.json();
+
     const extract = data.extract || "No description found.";
 
-    res.status(200).send(`📖 ${title}: ${extract}`);
+    res.send(`📖 ${data.title}: ${extract}`);
   } catch (e) {
-    res.status(200).send("Wiki error.");
+    res.send("Wiki error.");
   }
 }
