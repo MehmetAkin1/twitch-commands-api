@@ -4,31 +4,37 @@ export default async function handler(req, res) {
   if (!q) return res.send("No query");
 
   try {
-    // Direkt search (en stabil yöntem)
-    const search = await fetch(
+    // 1) search
+    const searchRes = await fetch(
       `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json`
     );
 
-    const sData = await search.json();
-    const first = sData?.query?.search?.[0];
+    const searchData = await searchRes.json();
+    const result = searchData?.query?.search?.[0];
 
-    if (!first) {
+    if (!result) {
       return res.send(`📖 ${q}: No result found.`);
     }
 
-    const title = first.title;
+    const title = result.title;
 
-    // summary al
-    const summary = await fetch(
+    // 2) summary
+    const summaryRes = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
     );
 
-    const data = await summary.json();
+    const data = await summaryRes.json();
 
-    const extract = data.extract || "No description found.";
+    // 🔥 KRİTİK FIX: sadece extract kullan
+    let text = data.extract;
 
-    res.send(`📖 ${data.title}: ${extract}`);
+    if (!text || text.includes("may refer to")) {
+      text = "No clean description found.";
+    }
+
+    // 🔥 TEMİZ OUTPUT (SE için optimize)
+    res.send(`📖 ${title}: ${text}`);
   } catch (e) {
-    res.send("Wiki error.");
+    res.send(`Wiki error.`);
   }
 }
